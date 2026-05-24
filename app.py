@@ -150,17 +150,17 @@ def api_search():
     rank_to = request.args.get("rank_to", "").strip()
     page = request.args.get("page", 1, type=int)
     sort_field = request.args.get("sort_field", "rank")
-    sort_order = request.args.get("sort_order", "desc")
-    # Map to internal format: score, rank, time_asc, time_desc
+    sort_order = request.args.get("sort_order", "")
+    # Default order: asc for rank (small number = best), desc for others
+    if not sort_order:
+        sort_order = "asc" if sort_field == "rank" else "desc"
+    # Map to internal format
     if sort_field == "rank":
         sort_by = "rank" if sort_order == "asc" else "rank_desc"
     elif sort_field == "time":
         sort_by = "time_asc" if sort_order == "asc" else "time_desc"
     else:
-        sort_by = "score"  # score always uses the order in DB query
-    # Store effective sort_order for score inversion
-    if sort_field == "score" and sort_order == "asc":
-        sort_by = "score_asc"
+        sort_by = "score_asc" if sort_order == "asc" else "score"
 
     try:
         tags = json.loads(tags_json)

@@ -282,8 +282,8 @@
         <option value="time">时间</option>
       </select>
       <select id="sortOrder" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--card-bg);cursor:pointer;">
-        <option value="desc">从高到低</option>
-        <option value="asc">从低到高</option>
+        <option value="asc">排名从高到低</option>
+        <option value="desc">排名从低到高</option>
       </select>
     </div>
   </div>
@@ -471,15 +471,17 @@ function updateSortOrderLabels() {
   const field = document.getElementById('sortField').value;
   const order = document.getElementById('sortOrder');
   if (field === 'time') {
-    order.options[0].text = '从新到旧';
-    order.options[1].text = '从旧到新';
+    order.options[0].text = '从新到旧'; order.options[0].value = 'desc';
+    order.options[1].text = '从旧到新'; order.options[1].value = 'asc';
     order.value = 'desc';
   } else if (field === 'rank') {
-    order.options[0].text = '排名从低到高';
-    order.options[1].text = '排名从高到低';
+    order.options[0].text = '排名从高到低'; order.options[0].value = 'asc';
+    order.options[1].text = '排名从低到高'; order.options[1].value = 'desc';
+    order.value = 'asc';
   } else {
-    order.options[0].text = '从高到低';
-    order.options[1].text = '从低到高';
+    order.options[0].text = '从高到低'; order.options[0].value = 'desc';
+    order.options[1].text = '从低到高'; order.options[1].value = 'asc';
+    order.value = 'desc';
   }
 }
 
