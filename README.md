@@ -29,6 +29,8 @@ python app.py
 
 访问 `http://localhost:8080`
 
+目前基于阿里云试用云服务器部署了该网页，ip为 39.105.76.120，但是没有长期运维的打算
+
 ## 数据来源
 
 - [bangumi-data](https://github.com/bangumi-data/bangumi-data) — 条目 ID 索引
