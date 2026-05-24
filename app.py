@@ -149,7 +149,7 @@ def api_search():
     rank_from = request.args.get("rank_from", "").strip()
     rank_to = request.args.get("rank_to", "").strip()
     page = request.args.get("page", 1, type=int)
-    sort_field = request.args.get("sort_field", "score")
+    sort_field = request.args.get("sort_field", "rank")
     sort_order = request.args.get("sort_order", "desc")
     # Map to internal format: score, rank, time_asc, time_desc
     if sort_field == "rank":
