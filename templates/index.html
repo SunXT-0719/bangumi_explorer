@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bangumi 动漫评分分析</title>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --card-bg: #fff;
+    --text: #333;
+    --text-secondary: #888;
+    --border: #e0e0e0;
+    --primary: #f09199;
+    --primary-dark: #e07a83;
+    --primary-light: #fef0f1;
+    --star: #f5a623;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 20px; }
+
+  header { text-align: center; padding: 32px 0 24px; }
+  header h1 { font-size: 28px; color: var(--primary-dark); letter-spacing: 1px; }
+  header p { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
+
+  /* ---- Search Panel ---- */
+  .search-panel {
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 24px 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+
+  .search-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .search-row .kw-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-row .kw-input:focus { border-color: var(--primary); }
+
+  .filter-section { margin-bottom: 12px; }
+  .filter-section > .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  /* Tag chips */
+  .tag-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 32px;
+    padding: 4px 0;
+  }
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: default;
+    animation: fadeIn 0.15s;
+  }
+  .tag-chip .remove { cursor: pointer; font-size: 15px; opacity: 0.6; margin-left: 2px; }
+  .tag-chip .remove:hover { opacity: 1; }
+  @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+  /* Tag input with dropdown */
+  .tag-input-wrap { position: relative; display: inline-block; min-width: 180px; }
+  .tag-input-wrap input {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 13px; outline: none; width: 160px;
+  }
+  .tag-input-wrap input:focus { border-color: var(--primary); }
+  .tag-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; max-height: 240px;
+    overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); z-index: 100;
+    display: none; min-width: 200px;
+  }
+  .tag-dropdown.show { display: block; }
+  .tag-dropdown .item {
+    padding: 8px 14px; cursor: pointer; font-size: 13px;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: background 0.1s;
+  }
+  .tag-dropdown .item:hover { background: var(--primary-light); }
+  .tag-dropdown .item .tag-count { font-size: 11px; color: var(--text-secondary); }
+  .tag-dropdown .no-match { padding: 12px 14px; font-size: 13px; color: var(--text-secondary); text-align: center; }
+
+  /* Date row */
+  .date-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .date-input-group {
+    display: flex; align-items: center; gap: 4px;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding-right: 4px; background: #fff; transition: border-color 0.2s;
+  }
+  .date-input-group:focus-within { border-color: var(--primary); }
+  .date-input-group input {
+    padding: 8px 10px; border: none; border-radius: 8px 0 0 8px;
+    font-size: 13px; outline: none; width: 135px;
+  }
+  .date-input-group .cal-btn {
+    padding: 4px 6px; border: none; background: none; cursor: pointer;
+    font-size: 16px; border-radius: 4px; line-height: 1;
+  }
+  .date-input-group .cal-btn:hover { background: #f0f0f0; }
+  .date-sep { color: var(--text-secondary); font-size: 13px; }
+
+  .month-picker {
+    position: absolute; top: 100%; left: 0; margin-top: 4px;
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    z-index: 100; padding: 14px; display: none; width: 280px;
+  }
+  .month-picker.show { display: block; }
+  .month-picker .mp-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  }
+  .month-picker .mp-year { font-size: 15px; font-weight: 600; }
+  .month-picker .mp-nav { cursor: pointer; padding: 4px 8px; border: none; background: none; font-size: 16px; color: var(--text); border-radius: 4px; }
+  .month-picker .mp-nav:hover { background: #f0f0f0; }
+  .month-picker .mp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .month-picker .mp-month {
+    padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer;
+    font-size: 13px; border: none; background: none; color: var(--text);
+    transition: all 0.15s;
+  }
+  .month-picker .mp-month:hover { background: #f5f5f5; }
+  .month-picker .mp-month.selected { background: var(--primary); color: #fff; font-weight: 600; }
+  .month-picker .mp-clear {
+    display: block; width: 100%; margin-top: 8px; padding: 6px;
+    border: none; background: none; color: var(--text-secondary);
+    font-size: 12px; cursor: pointer; border-radius: 6px;
+  }
+  .month-picker .mp-clear:hover { background: #f5f5f5; }
+
+  .btn-row { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+  .btn-search {
+    padding: 10px 28px; background: var(--primary); color: #fff;
+    border: none; border-radius: 8px; font-size: 15px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-search:hover { background: var(--primary-dark); }
+  .btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+  .hint { font-size: 12px; color: var(--text-secondary); }
+
+  /* Results */
+  .results-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+  }
+  .results-header .count { font-size: 14px; color: var(--text-secondary); }
+  .results-header .count strong { color: var(--text); }
+
+  .result-card {
+    background: var(--card-bg); border-radius: 12px; padding: 18px 20px;
+    margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    display: flex; gap: 18px; align-items: flex-start;
+    transition: box-shadow 0.2s;
+  }
+  .result-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .result-card .poster {
+    width: 80px; height: 113px; border-radius: 6px; object-fit: cover;
+    flex-shrink: 0; background: #eee;
+  }
+  .result-card .info { flex: 1; min-width: 0; }
+  .result-card .title { font-size: 17px; font-weight: 600; margin-bottom: 4px; line-height: 1.4; }
+  a.title-link, a.title-link:visited { color: #333; text-decoration: none; }
+  a.title-link:hover { color: #e07a83 !important; text-decoration: underline !important; }
+  .result-card .title .jp { font-size: 13px; font-weight: 400; color: var(--text-secondary); }
+  .result-card .meta { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .result-card .tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag { display: inline-block; padding: 2px 8px; background: #f0f0f0; border-radius: 4px; font-size: 12px; color: var(--text-secondary); cursor: pointer; transition: background 0.15s; }
+  .tag:hover { background: var(--primary-light); color: var(--primary-dark); }
+  .tag.primary { font-weight: 700; color: #555; }
+
+  .score-box { text-align: center; min-width: 80px; flex-shrink: 0; }
+  .score-box .score { font-size: 30px; font-weight: 700; color: var(--primary-dark); line-height: 1.1; }
+  .score-box .rank { font-size: 12px; color: var(--text-secondary); margin: 2px 0; }
+  .score-box .stars { color: var(--star); font-size: 13px; letter-spacing: 1px; }
+  .refresh-btn {
+    margin-top: 4px; font-size: 11px; padding: 3px 8px;
+    background: transparent; color: var(--primary-dark);
+    border: 1px solid var(--primary); border-radius: 4px; cursor: pointer;
+  }
+  .refresh-btn:hover:not(:disabled) { background: var(--primary-light); }
+
+  .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 24px; align-items: center; flex-wrap: wrap; }
+  .pagination button {
+    padding: 8px 16px; font-size: 14px; background: var(--card-bg);
+    color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  }
+  .pagination button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .pagination button:hover:not(.active):not(:disabled) { background: #f9f9f9; }
+  .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pagination .page-info { font-size: 13px; color: var(--text-secondary); }
+  .pagination .jump-input {
+    width: 50px; padding: 7px 8px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 13px; text-align: center; outline: none;
+  }
+  .pagination .jump-input:focus { border-color: var(--primary); }
+  .pagination .jump-btn {
+    padding: 7px 12px; font-size: 13px; background: var(--card-bg);
+    color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+  }
+
+  .loading { text-align: center; padding: 48px; color: var(--text-secondary); }
+  .error { text-align: center; padding: 24px; color: #e05050; }
+  .empty { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+  .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+  footer { text-align: center; padding: 30px; color: var(--text-secondary); font-size: 12px; }
+  footer a { color: var(--primary-dark); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Bangumi 评分检索</h1>
+  <p>数据来源：bgm.tv · 评分从分布精确计算 · 自动过滤 &lt;10 人评分的作品</p>
+</header>
+
+<div class="search-panel">
+  <div class="search-row">
+    <input type="text" class="kw-input" id="keyword"
+           placeholder="搜索动漫名称..." autocomplete="off" autofocus>
+  </div>
+
+  <!-- Tags -->
+  <div class="filter-section">
+    <span class="label">标签筛选（输入搜索标签名，点击添加）</span>
+    <div class="tag-chips" id="tagChips"></div>
+    <div class="tag-input-wrap" id="tagInputWrap">
+      <input type="text" id="tagInput" placeholder="输入标签名搜索..." autocomplete="off">
+      <div class="tag-dropdown" id="tagDropdown"></div>
+    </div>
+  </div>
+
+  <!-- Date range -->
+  <div class="filter-section">
+    <span class="label">播出时间范围（精确到月，格式如 2020-01）</span>
+    <div class="date-row">
+      <div style="position:relative" id="dateFromWrap">
+        <div class="date-input-group">
+          <input type="text" id="date_from" placeholder="开始月份" autocomplete="off">
+          <button class="cal-btn" id="calBtnFrom" title="选择月份">&#128197;</button>
+        </div>
+        <div class="month-picker" id="monthPickerFrom"></div>
+      </div>
+      <span class="date-sep">至</span>
+      <div style="position:relative" id="dateToWrap">
+        <div class="date-input-group">
+          <input type="text" id="date_to" placeholder="结束月份" autocomplete="off">
+          <button class="cal-btn" id="calBtnTo" title="选择月份">&#128197;</button>
+        </div>
+        <div class="month-picker" id="monthPickerTo"></div>
+      </div>
+      <span class="date-sep" style="margin-left:8px">排序:</span>
+      <select id="sortField" onchange="updateSortOrderLabels()" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--card-bg);cursor:pointer;">
+        <option value="score">评分</option>
+        <option value="rank">排名</option>
+        <option value="time">时间</option>
+      </select>
+      <select id="sortOrder" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--card-bg);cursor:pointer;">
+        <option value="desc">从高到低</option>
+        <option value="asc">从低到高</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Rank range -->
+  <div class="filter-section" style="margin-top:4px">
+    <span class="label">排名范围（仅搜索有排名的条目，留空表示不限制）</span>
+    <div class="date-row">
+      <input type="number" id="rank_from" placeholder="最高排名，如 1" min="1" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;width:145px" autocomplete="off">
+      <span class="date-sep">至</span>
+      <input type="number" id="rank_to" placeholder="最低排名，如 100" min="1" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;width:145px" autocomplete="off">
+      <span class="hint">排名 #1 为最高排名，数字越小越好</span>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-search" id="searchBtn" onclick="search(1)">搜索</button>
+    <span class="hint">排除少于 10 人评分的作品</span>
+  </div>
+</div>
+
+<div class="results-header" id="resultsHeader" style="display:none">
+  <div class="count">共 <strong id="totalCount">0</strong> 条结果</div>
+</div>
+
+<div id="results"></div>
+<div class="pagination" id="pagination"></div>
+
+<footer>Data from <a href="https://bgm.tv" target="_blank">bgm.tv</a> via official API</footer>
+
+</div>
+
+<script>
+// ---- State ----
+let selectedTags = [];
+let dateFrom = '';
+let dateTo = '';
+let currentPage = 1;
+let tagDropdownTimer = null;
+
+// ---- Tag autocomplete ----
+const tagInput = document.getElementById('tagInput');
+const tagDropdown = document.getElementById('tagDropdown');
+const tagChips = document.getElementById('tagChips');
+
+tagInput.addEventListener('input', function() {
+  clearTimeout(tagDropdownTimer);
+  tagDropdownTimer = setTimeout(() => fetchTagSuggestions(this.value.trim()), 150);
+});
+
+tagInput.addEventListener('focus', function() {
+  if (tagDropdown.children.length > 0) tagDropdown.classList.add('show');
+  else fetchTagSuggestions(this.value.trim());
+});
+
+tagInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const first = tagDropdown.querySelector('.item');
+    if (first) first.click();
+  }
+});
+
+function fetchTagSuggestions(q) {
+  fetch(`/api/tags/autocomplete?q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(tags => {
+      tagDropdown.innerHTML = '';
+      if (!tags.length) {
+        tagDropdown.innerHTML = '<div class="no-match">无匹配标签</div>';
+      } else {
+        tags.filter(t => !selectedTags.includes(t.name)).forEach(t => {
+          const div = document.createElement('div');
+          div.className = 'item';
+          div.innerHTML = `${escapeHtml(t.name)}<span class="tag-count">${t.count}</span>`;
+          div.addEventListener('mousedown', e => { e.preventDefault(); addTag(t.name); });
+          tagDropdown.appendChild(div);
+        });
+      }
+      tagDropdown.classList.add('show');
+    });
+}
+
+function addTag(name) {
+  if (selectedTags.includes(name)) return;
+  selectedTags.push(name);
+  renderTagChips();
+  tagInput.value = '';
+  tagDropdown.classList.remove('show');
+  tagInput.focus();
+}
+
+function removeTag(name) {
+  selectedTags = selectedTags.filter(t => t !== name);
+  renderTagChips();
+}
+
+function renderTagChips() {
+  tagChips.innerHTML = selectedTags.map(t =>
+    `<span class="tag-chip">${escapeHtml(t)}<span class="remove" onclick="removeTag('${escapeHtml(t)}')">&times;</span></span>`
+  ).join('');
+}
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('tagInputWrap').contains(e.target))
+    tagDropdown.classList.remove('show');
+});
+
+// ---- Month picker ----
+const currentYear = new Date().getFullYear();
+
+function buildMonthPicker(pickerEl, inputEl, pickerYear, pickerMonth, onChange) {
+  pickerEl.innerHTML = '';
+  const header = document.createElement('div'); header.className = 'mp-header';
+  const prevBtn = document.createElement('button'); prevBtn.className = 'mp-nav'; prevBtn.textContent = '◀';
+  prevBtn.addEventListener('mousedown', e => { e.preventDefault(); buildMonthPicker(pickerEl, inputEl, pickerYear-1, pickerMonth, onChange); });
+  const yearLabel = document.createElement('span'); yearLabel.className = 'mp-year'; yearLabel.textContent = pickerYear + '年';
+  const nextBtn = document.createElement('button'); nextBtn.className = 'mp-nav'; nextBtn.textContent = '▶';
+  nextBtn.addEventListener('mousedown', e => { e.preventDefault(); buildMonthPicker(pickerEl, inputEl, pickerYear+1, pickerMonth, onChange); });
+  header.appendChild(prevBtn); header.appendChild(yearLabel); header.appendChild(nextBtn);
+  pickerEl.appendChild(header);
+
+  const grid = document.createElement('div'); grid.className = 'mp-grid';
+  for (let m = 1; m <= 12; m++) {
+    const btn = document.createElement('button'); btn.className = 'mp-month';
+    btn.textContent = m + '月';
+    if (pickerMonth === m) btn.classList.add('selected');
+    btn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const val = `${pickerYear}-${String(m).padStart(2, '0')}`;
+      inputEl.value = val;
+      onChange(val, pickerYear, m);
+      pickerEl.classList.remove('show');
+    });
+    grid.appendChild(btn);
+  }
+  pickerEl.appendChild(grid);
+
+  const clearBtn = document.createElement('button'); clearBtn.className = 'mp-clear'; clearBtn.textContent = '清除';
+  clearBtn.addEventListener('mousedown', e => { e.preventDefault(); inputEl.value = ''; onChange('', pickerYear, null); pickerEl.classList.remove('show'); });
+  pickerEl.appendChild(clearBtn);
+}
+
+let pickerFromYear = currentYear, pickerFromMonth = null;
+let pickerToYear = currentYear, pickerToMonth = null;
+
+const dateFromInput = document.getElementById('date_from');
+const dateToInput = document.getElementById('date_to');
+const dateFromWrap = document.getElementById('dateFromWrap');
+const dateToWrap = document.getElementById('dateToWrap');
+const monthPickerFrom = document.getElementById('monthPickerFrom');
+const monthPickerTo = document.getElementById('monthPickerTo');
+
+function openMonthPicker(inputEl, pickerEl, pickerYear, pickerMonth, setter) {
+  return function(e) {
+    e.stopPropagation();
+    monthPickerTo.classList.remove('show');
+    monthPickerFrom.classList.remove('show');
+    const y = pickerYear;
+    const m = pickerMonth;
+    buildMonthPicker(pickerEl, inputEl, y, m, (val, year, month) => { setter(val, year, month); });
+    pickerEl.classList.toggle('show');
+  };
+}
+
+let setDateFrom = (val, y, m) => { dateFrom = val; pickerFromYear = y; pickerFromMonth = m; };
+let setDateTo = (val, y, m) => { dateTo = val; pickerToYear = y; pickerToMonth = m; };
+
+dateFromInput.addEventListener('click', openMonthPicker(dateFromInput, monthPickerFrom, pickerFromYear, pickerFromMonth, setDateFrom));
+document.getElementById('calBtnFrom').addEventListener('click', openMonthPicker(dateFromInput, monthPickerFrom, pickerFromYear, pickerFromMonth, setDateFrom));
+dateToInput.addEventListener('click', openMonthPicker(dateToInput, monthPickerTo, pickerToYear, pickerToMonth, setDateTo));
+document.getElementById('calBtnTo').addEventListener('click', openMonthPicker(dateToInput, monthPickerTo, pickerToYear, pickerToMonth, setDateTo));
+
+// Also allow manual text entry
+dateFromInput.addEventListener('change', () => { dateFrom = dateFromInput.value.trim(); });
+dateToInput.addEventListener('change', () => { dateTo = dateToInput.value.trim(); });
+
+document.addEventListener('click', e => {
+  if (!dateFromWrap.contains(e.target)) monthPickerFrom.classList.remove('show');
+  if (!dateToWrap.contains(e.target)) monthPickerTo.classList.remove('show');
+});
+
+// ---- Search ----
+function updateSortOrderLabels() {
+  const field = document.getElementById('sortField').value;
+  const order = document.getElementById('sortOrder');
+  if (field === 'time') {
+    order.options[0].text = '从新到旧';
+    order.options[1].text = '从旧到新';
+    order.value = 'desc';
+  } else if (field === 'rank') {
+    order.options[0].text = '排名从低到高';
+    order.options[1].text = '排名从高到低';
+  } else {
+    order.options[0].text = '从高到低';
+    order.options[1].text = '从低到高';
+  }
+}
+
+document.getElementById('keyword').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') search(1);
+});
+
+async function search(page) {
+  const keyword = document.getElementById('keyword').value.trim();
+  currentPage = page;
+
+  const resultsDiv = document.getElementById('results');
+  const headerDiv = document.getElementById('resultsHeader');
+  const paginationDiv = document.getElementById('pagination');
+  const searchBtn = document.getElementById('searchBtn');
+
+  resultsDiv.innerHTML = '<div class="loading">搜索中...</div>';
+  headerDiv.style.display = 'none';
+  paginationDiv.innerHTML = '';
+  searchBtn.disabled = true;
+
+  const sortField = document.getElementById('sortField').value;
+  const sortOrder = document.getElementById('sortOrder').value;
+  const rankFrom = document.getElementById('rank_from').value.trim();
+  const rankTo = document.getElementById('rank_to').value.trim();
+
+  const params = new URLSearchParams();
+  if (keyword) params.set('keyword', keyword);
+  if (selectedTags.length > 0) params.set('tags', JSON.stringify(selectedTags));
+  if (dateFrom) params.set('date_from', dateFrom);
+  if (dateTo) params.set('date_to', dateTo);
+  if (rankFrom) params.set('rank_from', rankFrom);
+  if (rankTo) params.set('rank_to', rankTo);
+  params.set('page', page);
+  params.set('sort_field', sortField);
+  params.set('sort_order', sortOrder);
+
+  try {
+    const resp = await fetch(`/api/search?${params}`);
+    const data = await resp.json();
+    searchBtn.disabled = false;
+
+    if (data.error) {
+      resultsDiv.innerHTML = `<div class="error">${escapeHtml(data.error)}</div>`;
+      return;
+    }
+
+    if (!data.results || data.results.length === 0) {
+      resultsDiv.innerHTML = '<div class="empty"><div class="icon">( ´･ω･`)</div><p>没有找到结果，换个关键词试试吧</p></div>';
+      return;
+    }
+
+    headerDiv.style.display = 'flex';
+    document.getElementById('totalCount').textContent = data.total;
+
+    let html = '';
+    for (const item of data.results) {
+      const nameDisplay = item.name_cn || item.name;
+      const nameJp = item.name_cn ? item.name : '';
+      const score = item.score > 0 ? item.score.toFixed(2) : '-';
+
+      const posterUrl = item.image_url || '';
+
+      html += `
+      <div class="result-card">
+        ${posterUrl ? `<img class="poster" src="${escapeHtml(posterUrl)}" loading="lazy" onerror="this.style.display='none'" alt="">` : ''}
+        <div class="info">
+          <div class="title">
+            <a href="https://bgm.tv/subject/${item.id}" target="_blank" rel="noopener"
+               class="title-link"
+               title="在 bgm.tv 中查看">${escapeHtml(nameDisplay)}</a>
+            ${nameJp ? `<span class="jp"> / ${escapeHtml(nameJp)}</span>` : ''}
+          </div>
+          <div class="meta">
+            ${item.date ? `<span>&#128197; ${item.date}</span>` : ''}
+            ${item.platform ? `<span>&#128250; ${escapeHtml(item.platform)}</span>` : ''}
+            ${item.eps ? `<span>${item.eps}话</span>` : ''}
+            <span>${item.rating_total.toLocaleString()} 人评分</span>
+          </div>
+          <div class="tags">
+            ${renderTags(item)}
+          </div>
+        </div>
+        <div class="score-box">
+          <div class="score">${score}</div>
+          <div class="rank">排名 #${item.rank || '-'}</div>
+          <div class="stars">${scoreToStars(item.score)}</div>
+          <button class="refresh-btn" onclick="event.stopPropagation();refreshScore(${item.id})" title="刷新评分">&#8635;</button>
+        </div>
+      </div>`;
+    }
+    resultsDiv.innerHTML = html;
+
+    // Pagination
+    const totalPages = Math.ceil(data.total / data.limit);
+    if (totalPages > 1) {
+      let pageHtml = `<span class="page-info">共 ${totalPages} 页</span>`;
+
+      pageHtml += `<button ${page <= 1 ? 'disabled' : ''} onclick="search(${page - 1})">上一页</button>`;
+
+      const startPage = Math.max(1, page - 2);
+      const endPage = Math.min(totalPages, page + 2);
+      for (let p = startPage; p <= endPage; p++) {
+        pageHtml += `<button class="${p === page ? 'active' : ''}" onclick="search(${p})">${p}</button>`;
+      }
+
+      pageHtml += `<button ${page >= totalPages ? 'disabled' : ''} onclick="search(${page + 1})">下一页</button>`;
+
+      // Page jump
+      pageHtml += `<input type="number" class="jump-input" id="jumpPage" min="1" max="${totalPages}" value="${page}" onkeydown="if(event.key==='Enter')jumpToPage(${totalPages})">`;
+      pageHtml += `<button class="jump-btn" onclick="jumpToPage(${totalPages})">跳转</button>`;
+
+      paginationDiv.innerHTML = pageHtml;
+    }
+
+  } catch (err) {
+    searchBtn.disabled = false;
+    resultsDiv.innerHTML = `<div class="error">网络错误: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderTags(item) {
+  const primary = item.primary_tags || [];
+  const meta = item.meta_tags || [];
+  const tags = item.tags || [];
+  const seen = new Set();
+  let html = '';
+
+  // Show meta_tags first
+  for (const t of meta.slice(0, 8)) {
+    const name = typeof t === 'string' ? t : t[0];
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const isPrimary = primary.includes(name);
+    html += `<span class="tag${isPrimary ? ' primary' : ''}" onclick="event.stopPropagation();addTag('${escapeHtml(name)}')" title="点击添加到标签筛选">${escapeHtml(name)}</span>`;
+  }
+
+  // Then other tags, avoiding duplicates
+  for (const t of tags) {
+    const name = typeof t === 'string' ? t : t[0];
+    if (seen.has(name) || seen.size >= 20) continue;
+    seen.add(name);
+    const isPrimary = primary.includes(name);
+    html += `<span class="tag${isPrimary ? ' primary' : ''}" onclick="event.stopPropagation();addTag('${escapeHtml(name)}')" title="点击添加到标签筛选">${escapeHtml(name)}</span>`;
+  }
+  return html;
+}
+
+function jumpToPage(totalPages) {
+  const input = document.getElementById('jumpPage');
+  let p = parseInt(input.value, 10);
+  if (isNaN(p) || p < 1) p = 1;
+  if (p > totalPages) p = totalPages;
+  search(p);
+}
+
+async function refreshScore(subjectId) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const resp = await fetch(`/api/subject/${subjectId}/refresh`);
+    const data = await resp.json();
+    if (data.error) { alert(data.error); }
+    else { search(currentPage); }
+  } catch (err) {
+    alert('刷新失败: ' + err.message);
+  }
+}
+
+function scoreToStars(score) {
+  if (!score) return '';
+  return '★'.repeat(Math.max(1, Math.min(5, Math.round(score / 2))));
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
